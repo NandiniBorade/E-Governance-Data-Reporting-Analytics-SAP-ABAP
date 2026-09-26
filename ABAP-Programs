@@ -1,73 +1,104 @@
-REPORT zgov_certificate_report.
+REPORT zgov_analytics_report.
 
 TABLES: zgov_citizen_app.
 
-DATA: gt_data TYPE TABLE OF zgov_citizen_app,
-      gs_data TYPE zgov_citizen_app.
+DATA: lt_data TYPE TABLE OF zgov_citizen_app,
+      ls_data TYPE zgov_citizen_app.
 
-SELECT-OPTIONS:
-  s_citid FOR zgov_citizen_app-citizen_id,
-  s_appid FOR zgov_citizen_app-aaplication_id,
-  s_certid FOR zgov_citizen_app-certificate_id,
-  s_date FOR zgov_citizen_app-issue_date.
-
-PARAMETERS:
-  p_ctype TYPE zgov_citizen_app-certificate_type,
-  p_cstat TYPE zgov_citizen_app-cert_status.
+DATA: gv_total_applications    TYPE i,
+      gv_approved_applications TYPE i,
+      gv_pending_applications  TYPE i,
+      gv_rejected_applications TYPE i,
+      gv_total_documents       TYPE i,
+      gv_verified_documents    TYPE i,
+      gv_pending_documents     TYPE i,
+      gv_total_certificates    TYPE i,
+      gv_generated_certificates TYPE i,
+      gv_pending_certificates  TYPE i.
 
 START-OF-SELECTION.
 
   SELECT *
     FROM zgov_citizen_app
-    INTO TABLE @gt_data
-    WHERE citizen_id     IN @s_citid
-      AND aaplication_id IN @s_appid
-      AND certificate_id IN @s_certid
-      AND issue_date     IN @s_date.
+    INTO TABLE @lt_data.
 
-  IF p_ctype IS NOT INITIAL.
-    DELETE gt_data WHERE certificate_type <> p_ctype.
-  ENDIF.
-
-  IF p_cstat IS NOT INITIAL.
-    DELETE gt_data WHERE cert_status <> p_cstat.
-  ENDIF.
-
-  IF gt_data IS INITIAL.
-    MESSAGE 'No certificate data found for the given selection' TYPE 'I'.
+  IF lt_data IS INITIAL.
+    MESSAGE 'No data found for analytics' TYPE 'I'.
     EXIT.
   ENDIF.
 
-  PERFORM display_report.
+  LOOP AT lt_data INTO ls_data.
+
+    IF ls_data-aaplication_id IS NOT INITIAL.
+      gv_total_applications = gv_total_applications + 1.
+    ENDIF.
+
+    IF ls_data-status = 'APPROVED'.
+      gv_approved_applications = gv_approved_applications + 1.
+    ENDIF.
+
+    IF ls_data-status = 'PENDING'.
+      gv_pending_applications = gv_pending_applications + 1.
+    ENDIF.
+
+    IF ls_data-status = 'REJECTED'.
+      gv_rejected_applications = gv_rejected_applications + 1.
+    ENDIF.
+
+    IF ls_data-document_id IS NOT INITIAL.
+      gv_total_documents = gv_total_documents + 1.
+    ENDIF.
+
+    IF ls_data-verification_status = 'VERIFIED'.
+      gv_verified_documents = gv_verified_documents + 1.
+    ENDIF.
+
+    IF ls_data-verification_status = 'PENDING'.
+      gv_pending_documents = gv_pending_documents + 1.
+    ENDIF.
+
+    IF ls_data-certificate_id IS NOT INITIAL.
+      gv_total_certificates = gv_total_certificates + 1.
+    ENDIF.
+
+    IF ls_data-cert_status = 'GENERATED'.
+      gv_generated_certificates = gv_generated_certificates + 1.
+    ENDIF.
+
+    IF ls_data-cert_status = 'PENDING'.
+      gv_pending_certificates = gv_pending_certificates + 1.
+    ENDIF.
+
+  ENDLOOP.
+
+  PERFORM display_analytics.
 
 
-FORM display_report.
+FORM display_analytics.
 
-  DATA: lo_alv TYPE REF TO cl_salv_table.
+  WRITE: / '==============================================',
+         / '       E-GOVERNANCE KPI ANALYTICS',
+         / '==============================================',
+         /.
 
-  TRY.
+  WRITE: / 'APPLICATION ANALYTICS'.
+  WRITE: / 'Total Applications     :', gv_total_applications.
+  WRITE: / 'Approved Applications  :', gv_approved_applications.
+  WRITE: / 'Pending Applications   :', gv_pending_applications.
+  WRITE: / 'Rejected Applications  :', gv_rejected_applications.
 
-      cl_salv_table=>factory(
-        IMPORTING
-          r_salv_table = lo_alv
-        CHANGING
-          t_table      = gt_data ).
+  SKIP 1.
 
-      lo_alv->get_functions( )->set_all( abap_true ).
+  WRITE: / 'DOCUMENT ANALYTICS'.
+  WRITE: / 'Total Documents        :', gv_total_documents.
+  WRITE: / 'Verified Documents     :', gv_verified_documents.
+  WRITE: / 'Pending Documents      :', gv_pending_documents.
 
-      lo_alv->get_columns( )->set_optimize( abap_true ).
+  SKIP 1.
 
-      lo_alv->get_display_settings( )->set_striped_pattern( abap_true ).
-
-      lo_alv->get_display_settings( )->set_list_header(
-        'E-Governance Certificate Report' ).
-
-      lo_alv->display( ).
-
-    CATCH cx_salv_msg INTO DATA(lx_msg).
-
-      MESSAGE lx_msg->get_text( ) TYPE 'I'.
-
-  ENDTRY.
+  WRITE: / 'CERTIFICATE ANALYTICS'.
+  WRITE: / 'Total Certificates     :', gv_total_certificates.
+  WRITE: / 'Generated Certificates:', gv_generated_certificates.
+  WRITE: / 'Pending Certificates   :', gv_pending_certificates.
 
 ENDFORM.
