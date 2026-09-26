@@ -1,33 +1,25 @@
-REPORT zgov_application_report.
+REPORT zgov_status_report.
 
 TABLES: zgov_citizen_app.
 
-DATA: gt_data TYPE TABLE OF zgov_citizen_app,
-      gs_data TYPE zgov_citizen_app.
+TYPES: BEGIN OF ty_status,
+         status TYPE zgov_citizen_app-status,
+         count  TYPE i,
+       END OF ty_status.
 
-SELECT-OPTIONS:
-  s_appid FOR zgov_citizen_app-aaplication_id,
-  s_citid FOR zgov_citizen_app-citizen_id,
-  s_date  FOR zgov_citizen_app-application_date.
-
-PARAMETERS:
-  p_status TYPE zgov_citizen_app-status.
+DATA: gt_status TYPE TABLE OF ty_status,
+      gs_status TYPE ty_status.
 
 START-OF-SELECTION.
 
-  SELECT *
+  SELECT status, COUNT( * )
     FROM zgov_citizen_app
-    INTO TABLE @gt_data
-    WHERE aaplication_id IN @s_appid
-      AND citizen_id     IN @s_citid
-      AND application_date IN @s_date.
+    WHERE status IS NOT INITIAL
+    GROUP BY status
+    INTO TABLE @gt_status.
 
-  IF p_status IS NOT INITIAL.
-    DELETE gt_data WHERE status <> p_status.
-  ENDIF.
-
-  IF gt_data IS INITIAL.
-    MESSAGE 'No data found for the given selection' TYPE 'I'.
+  IF gt_status IS INITIAL.
+    MESSAGE 'No status data found' TYPE 'I'.
     EXIT.
   ENDIF.
 
@@ -44,7 +36,7 @@ FORM display_report.
         IMPORTING
           r_salv_table = lo_alv
         CHANGING
-          t_table      = gt_data ).
+          t_table      = gt_status ).
 
       lo_alv->get_functions( )->set_all( abap_true ).
 
@@ -53,7 +45,7 @@ FORM display_report.
       lo_alv->get_display_settings( )->set_striped_pattern( abap_true ).
 
       lo_alv->get_display_settings( )->set_list_header(
-        'E-Governance Application Report' ).
+        'E-Governance Application Status Report' ).
 
       lo_alv->display( ).
 
